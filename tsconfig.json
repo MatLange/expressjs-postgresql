@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+      "target": "ES6",                          
+      "module": "esnext",                     
+      "strict": true,                           
+      "esModuleInterop": true,                 
+      "skipLibCheck": true,                     
+      "forceConsistentCasingInFileNames": true, 
+      "outDir": "./dist",                       
+      "rootDir": "./",     
+      "moduleResolution": "node",                  
+      "resolveJsonModule": true,                
+      "typeRoots": ["./node_modules/@types"],   
+      "lib": ["ES6"],                           
+      "sourceMap": true                         
+    },
+    "include": ["routes/**/*.ts"],                 
+    "exclude": ["node_modules", "dist"]        
+  } 
+  

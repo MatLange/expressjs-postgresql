@@ -1,10 +1,9 @@
-import * as Express from "express";
+import * as Express from "express"; 
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { chromium } from 'playwright';
 import { Page } from 'playwright';
 import  * as parse5 from 'parse5';
-import { Database } from "./database.types";
 import { JSDOM } from 'jsdom'; 
 import websites from "../data/websitedata";
 
