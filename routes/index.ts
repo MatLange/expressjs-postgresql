@@ -6,9 +6,13 @@ import { Page } from 'playwright';
 import  * as parse5 from 'parse5';
 import { JSDOM } from 'jsdom'; 
 import websites from "../data/websitedata";
+import { Database } from "../data/supabase";
 
 // Load environment variables from .env.local file
 dotenv.config({ path: ".env.local" });
+
+const table_websites = 'websites';
+const table_websitedata = 'websitedata';
 
 // Create a single supabase client for interacting with your database
 const supabase = createClient(
@@ -21,24 +25,33 @@ var router = Express.Router();
 async function resetData() {
   try {
     // Delete all existing data from the table
-    let { error: deleteError } = await supabase.from('websites').delete().neq('id', 0);
+    let { error: deleteError } = await supabase.from(`${table_websitedata}`).delete().neq('id', 0);
     if (deleteError) throw deleteError;
   } catch (error) {
     console.error('Error:', error);
   }
 }
 
-async function insertData(datasets: any[]) {
-  // Array of datasets to be inserted
-/*   const datasets = [
-    { name: 'Dataset 1', value: 'Value 1' },
-    { name: 'Dataset 2', value: 'Value 2' },
-    // Add more datasets as needed
-  ]; */
-
+async function insertData(datasets: { [key: string]: ResponseDTO[] }) {
   try {
+    // Filter and map data to match the schema
+    const flattenedData = Object.values(datasets).flat() || [];
+    const mappedData: Database['public']['Tables']['websitedata']['Insert'][] = flattenedData.map((item: any) => ({
+      baseurl: item.baseUrl,
+      //created_at: item.created_at,
+      duration: item.duration,
+      //id: item.id,
+      location: item.location,
+      title: item.title,
+      websiteid: parseInt(item.websiteid),
+    }));
+
     // Insert new datasets into the table
-    let { data, error: insertError } = await supabase.from('websites').insert(datasets);
+    const { data, error: insertError } = await supabase
+      .from(`${table_websitedata}`)
+      .insert(mappedData);    
+    // Insert new datasets into the table
+    const dataToInsert = Object.values(datasets).flat();
     if (insertError) throw insertError;
 
     console.log('Data inserted successfully:', data);
@@ -58,7 +71,7 @@ router.get(
     // Wrap the async code in an IIFE (Immediately Invoked Function Expression)
     (async () => {
       try {
-        const { data, error } = await supabase.from("websites").select();
+        const { data, error } = await supabase.from(`${table_websites}`).select();
 
         if (error) {
           console.error("Error fetching data:", error);
@@ -82,6 +95,7 @@ router.get(
 
         }
         }
+        //res.send('respond with dataau: ' + JSON.stringify(data));
       } catch (err) {
         console.error("Error fetching data:", err);
         // Handle the error appropriately, e.g., send an error response
@@ -93,6 +107,7 @@ router.get(
 );
 
 class ResponseDTO {
+  websiteid: string | null = null;
   title: string | null = null;
   baseUrl: string | null = null;
   url: string | null = null;
@@ -124,8 +139,9 @@ class ResponseDTO {
     return this.url;
   }
 
-  constructor (baseUrl: string) {
+  constructor (baseUrl: string, websiteid: string) {
     this.baseUrl = baseUrl;
+    this.websiteid = websiteid;
   }
 }
 
@@ -156,7 +172,7 @@ function capitalizeFirstLetter(string:string) {
 }
 
 
-const extractJobLinks = function(document: any, rules: any, baseUrl:any) {
+const extractJobLinks = function(document: any, rules: any, baseUrl:any, websiteid:string) {
   const responseDTOS: ResponseDTO[] = [];
   const itemListRule = rules["itemList"];
   const itemListElement = extractElementByRule(document, itemListRule);
@@ -166,7 +182,7 @@ const extractJobLinks = function(document: any, rules: any, baseUrl:any) {
 
   
   (itemElements || []).forEach((itemElement:any) => {
-    const responseDTO = new ResponseDTO(baseUrl);
+    const responseDTO = new ResponseDTO(baseUrl, websiteid);
     const attributeRuleKeys = Object.keys(rules).filter((key) => key !== "item" && key !== "itemList");
     attributeRuleKeys.forEach((key) => {
       const rule = rules[key as keyof typeof rules];
@@ -200,14 +216,16 @@ function getBaseUrl(url:string) {
 
 const scrapeWebsite = async function (
   page: Page,
-  url: string,
-  rules: any,
+  website: any,
   req: Express.Request,
   res: Express.Response,
   next: Express.NextFunction,
 
 ) {
   try {
+    const websiteid = website.websiteid;
+    const url = website.url;	
+    const rules = website.rules;
 
     await page.goto(url); 
 
@@ -230,11 +248,11 @@ const scrapeWebsite = async function (
  await page.waitForSelector('.search-result'); // Replace with the actual selector for the search results
 
  await page.waitForTimeout(5000); */
- const pageContent = await page.content();
+    const pageContent = await page.content();
 
     const dom = new JSDOM(pageContent);
     const htmlDocument = dom.window.document; 
-    const responseDTOs = extractJobLinks(htmlDocument, rules, baseUrl);
+    const responseDTOs = extractJobLinks(htmlDocument, rules, baseUrl, websiteid);
   
     return responseDTOs;
   } catch (err) {
@@ -246,7 +264,7 @@ const scrapeWebsite = async function (
 async function processWebsites(page: Page, websites: any[], req: any, res: any, next: any) {
   const websiteResponseDTOs: { [key: string]: ResponseDTO[] } = {};
   for (const website of websites) {
-    const responseDTOs = await scrapeWebsite(page, website.url, website.rules, req, res, next);
+    const responseDTOs = await scrapeWebsite(page, website, req, res, next);
     websiteResponseDTOs[website.url] = responseDTOs || [];
     console.log("ResponseDTOs:", responseDTOs);
   }
@@ -267,9 +285,12 @@ const scrapeWebsites = async function (
   const page: Page = await context.newPage();
 
   const websiteResponseDTOs = await processWebsites(page, websites, req, res, next);
+  await resetData()
+  await insertData(websiteResponseDTOs);
 
   await page.close();
   await browser.close();     
 }
 
-module.exports = router;
+//module.exports = router;
+export { router as indexRouter };

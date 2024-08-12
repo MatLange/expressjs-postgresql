@@ -10,4 +10,5 @@ router.get('/', function(
   res.send('respond with a resource');
 });
 
-module.exports = router;
+//module.exports = router;
+export { router as usersRouter };

@@ -2,6 +2,7 @@ const websites = [
     {
         "title": "Ferchau",
         "url": "https://freelance.ferchau.com",
+        "websiteid": "1",
         "actionSteps": {
           1: {
             "type": "getByRole",
@@ -86,6 +87,7 @@ const websites = [
         {
             "title": "Freeelancermap",
             "url": "https://www.freelancermap.de/projektboerse.html?query=Javascript&countries%5B%5D=1&sort=1&pagenr=1",
+            "websiteid": "2",
             "rules" : {
                 "itemList": {
                   "type": "classSelector",
